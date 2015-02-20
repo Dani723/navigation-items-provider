@@ -1,0 +1,17 @@
+{
+  "name": "invend-navigation-items-provider",
+  "version": "0.1.0",
+  "description": "",
+  "keywords": [],
+  "main": "main.js",
+  "jspm": {
+    "registry": "jspm",
+    "dependencies": {
+      "ember": "*",
+      "ember-vcl-transition-monitoring-support": "github:ember-vcl/transition-monitoring-support",
+      "log": "github:n-fuse/log@^0.1.0",
+      "lodash": "^3.2.0"
+    },
+    "format": "es6"
+  }
+}
