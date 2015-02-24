@@ -9,7 +9,7 @@
     "dependencies": {
       "ember": "*",
       "ember-vcl-transition-monitoring-support": "github:ember-vcl/transition-monitoring-support",
-      "log": "github:n-fuse/log@^0.1.0",
+      "log": "github:n-fuse/holzfella",
       "lodash": "^3.2.0"
     },
     "format": "es6"
