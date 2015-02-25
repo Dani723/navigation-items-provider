@@ -10,7 +10,7 @@ export default {
   needs: ['resources', 'pages'],
 
   initialize: function(container, application, input, output) {
-    var api = input.init.api, config = input.init.config, l10n = input.init.l10n, authN = input.init.authN;
+    var api = input.init.api, config = input.init.config['navigation-items-provider'], l10n = input.init.l10n, authN = input.init.authN;
 
     var rawNavItems = {};
 
