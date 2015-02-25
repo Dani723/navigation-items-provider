@@ -7,7 +7,7 @@ import NavigationItemsProvider from './provider';
 
 export default {
   name: 'navigation-items-provider',
-  needs: ['resources', 'ember-vcl/transition-monitoring-support', 'pages'],
+  needs: ['resources', 'pages'],
 
   initialize: function(container, application, input, output) {
     var api = input.init.api, config = input.init.config, l10n = input.init.l10n, authN = input.init.authN;
