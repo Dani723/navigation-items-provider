@@ -7,9 +7,8 @@
   "jspm": {
     "registry": "jspm",
     "dependencies": {
-      "ember": "*",
-      "ember-vcl-transition-monitoring-support": "github:ember-vcl/transition-monitoring-support",
-      "log": "github:n-fuse/holzfella",
+      "ember-vcl-transition-monitoring-support": "github:ember-vcl/transition-monitoring-support@^0.1.0",
+      "log": "github:n-fuse/holzfella@^0.1.0",
       "lodash": "^3.2.0"
     },
     "format": "es6"
