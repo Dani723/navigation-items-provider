@@ -1,7 +1,6 @@
 // Loads the area specific navigation object into
 // App.navigation
 import log from 'log';
-import _ from 'lodash';
 import Ember from 'ember';
 import NavigationItemsProvider from './provider';
 
@@ -104,7 +103,7 @@ export default {
           if (item.items.length === 1 && typeof item.items[0] === 'string') {
             var resIRI = item.items[0];
             var promise = api.get(resIRI).then(function(data) {
-              rawNavItems = _.clone(data);
+              rawNavItems = Ember.copy(data, true);
               var labelKey = findLabel(data);
               var broaderKey = findBroader(data);
               data = unpack(data);
