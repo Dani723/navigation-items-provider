@@ -9,7 +9,11 @@ export default {
   needs: ['resources', 'pages'],
 
   initialize: function(container, application, input, output) {
-    var api = input.init.api, config = input.init.config['navigation-items-provider'], l10n = input.init.l10n, authN = input.init.authN;
+    var api = input.init.api,
+      config = input.init.config['navigation-items-provider'],
+      l10n = input.init.l10n,
+      authN = input.init.authN,
+      apiDoc = input.init.apiDoc;
 
     var rawNavItems = {};
 
@@ -205,7 +209,7 @@ export default {
             appendParent(navigation.items);
           }
         });
-        var baseURL = api.mainURL;
+        var baseURL = apiDoc.mainURL;
         application.navigationItemsProvider = NavigationItemsProvider.create({
           container: container,
           navigations: navigations,
