@@ -1,6 +1,6 @@
 {
   "name": "iv-navigation-items-provider",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "",
   "keywords": [],
   "main": "main.js",
@@ -8,8 +8,7 @@
     "registry": "jspm",
     "dependencies": {
       "ember-vcl-transition-monitoring-support": "github:ember-vcl/transition-monitoring-support@^0.1.0",
-      "log": "github:n-fuse/holzfella@^0.1.0",
-      "lodash": "^3.2.0"
+      "log": "github:n-fuse/holzfella@^0.1.0"
     },
     "format": "es6"
   }
