@@ -1,25 +1,69 @@
 import Ember from 'ember';
-import { TransitionMonitoringSupport } from 'ember-vcl-transition-monitoring-support';
 import log from 'log';
+import { TransitionMonitoringSupport } from 'ember-vcl-transition-monitoring-support';
+import {isChild, isAncestor, selectAndOpenAncestors} from './tree-utils';
 
 export default Ember.Object.extend(Ember.Evented, TransitionMonitoringSupport, {
   container: null,
-  resource: null,
   navigations: null,
+  filteredNavigations: null,
   pages: null,
   selectedItems: [],
-  initialLoad: true,
   useSlug: false,
-  localize: function(l) {
-    return l;
-  },
-  itemMap: function() {
-    var self = this;
-    var itemMap = Ember.Map.create();
+  pagesMap: Ember.Map.create(),
+  navigationMap: Ember.Map.create(),
+  itemMap: Ember.Map.create(),
+  filterFunction: () => true,
+  localize: (l) => l,
+
+  /**
+  * Main method updates all needed data: filteredNavigations, pagesMap,
+  * navigationMap and itemMap
+  */
+  updateMaps: function () {
     var navigations = this.get('navigations');
+    // requires filtering because source data may contain duplicates
+    // (e.g. similar nav items for different media)
+    var filteredNavigations = navigations.filter(this.get('filterFunction'));
+    this.set('filteredNavigations', filteredNavigations);
+    Ember.run.once(this, function () {
+      this.updatePagesMap();
+      this.updateNavigationMap();
+      this.updateItemMap();
+    });
+  }.observes('navigations'),
+
+  /**
+  * Creates pagesMap: page.id => page
+  */
+  updatePagesMap: function() {
+    var pages = this.get('pages');
+    var pagesMap = Ember.Map.create();
+    pages.forEach((page) => pagesMap.set(page['@id'], page));
+    this.set('pagesMap', pagesMap);
+  },
+
+  /**
+  * Creates navigationMap navigation.id => navigation
+  */
+  updateNavigationMap: function() {
+    var navigationMap = Ember.Map.create();
     var pagesMap = this.get('pagesMap');
+    var navigations = this.get('filteredNavigations');
+    navigations.forEach((nav) => navigationMap.set(nav['@id'], nav));
+    this.set('navigationMap', navigationMap);
+  },
+
+  /**
+  * Creates item map: path => nav item
+  */
+  updateItemMap: function() {
+    var thiz = this;
+    var navigations = this.get('filteredNavigations');
+    var pagesMap = this.get('pagesMap');
+    var itemMap = Ember.Map.create();
     var insert = function(item) {
-      var path = self.createPath(item);
+      var path = thiz.createPath(item);
       itemMap.set(path, item);
       if (item.items instanceof Array) {
         item.items.forEach(function(item) {
@@ -27,14 +71,14 @@ export default Ember.Object.extend(Ember.Evented, TransitionMonitoringSupport, {
         });
       }
     };
-    navigations.forEach(function(navigation) {
+    navigations.forEach((navigation) => {
       if (navigation.items) {
-        navigation.items.forEach(function(item) {
+        navigation.items.forEach((item) => {
           insert(item);
           if (item.page) {
             var page = pagesMap.get(item.page);
             if (page.type === 'index' && page.subPages instanceof Array) {
-              page.subPages.forEach(function(subId) {
+              page.subPages.forEach((subId) => {
                 var subPage = pagesMap.get(subId);
                 var path = '/' + page.name + '/' + subPage.name;
                 itemMap.set(path, item);
@@ -44,92 +88,16 @@ export default Ember.Object.extend(Ember.Evented, TransitionMonitoringSupport, {
         });
       }
     });
-    return itemMap;
-  }.property('navigations', 'pagesMap'),
-
-  pagesMap: function() {
-    var pages = this.get('pages');
-    var pagesMap = Ember.Map.create();
-    pages.forEach(function(page) {
-      pagesMap.set(page['@id'], page);
-    });
-    return pagesMap;
-  }.property('pages'),
-
-  navigationMap: function() {
-    var self = this;
-    var navigationMap = Ember.Map.create();
-    var pagesMap = Ember.Map.create();
-    this.get('pages').forEach(function(page) {
-      pagesMap.set(page['@id'], page.name);
-    });
-    var setPageName = function(item) {
-      item.pageName = pagesMap.get(item.page);
-      self.createPath(item);
-      if (item.items instanceof Array) {
-        item.items.forEach(function(item) {
-          setPageName(item);
-          self.createPath(item);
-        });
-      }
-    };
-    var navigations = this.get('navigations');
-    navigations.forEach(function(navigation) {
-      navigation.items.forEach(function(item) {
-        setPageName(item);
-      });
-      navigationMap.set(navigation['@id'], navigation);
-    });
-    return navigationMap;
-  }.property('navigations'),
-
-  unknownProperty: function(property) {
-    return this.get('navigationMap').get(property);
+    thiz.set('itemMap', itemMap);
   },
 
   handleSelection: function(item) {
-    var isChild = function(child, parent) {
-      if (parent.items instanceof Array) {
-        if (parent.items.indexOf(child) !== -1) {
-          return true;
-        }
-      }
-      return false;
-    };
-
-    var isAncestor = function(child, ancestor) {
-      if (ancestor.items instanceof Array) {
-        if (isChild(child, ancestor)) {
-          return true;
-        } else {
-          var check = false;
-          ancestor.items.forEach(function(item) {
-            if (isAncestor(child, item)) {
-              check = true;
-            }
-          });
-          return check;
-        }
-      }
-      return false;
-    };
-
-    var selectAndOpenAncestors = function(item, selectedItems) {
-      if ('_parentItem' in item) {
-        if (!item._parentItem.selected) {
-          Ember.set(item._parentItem, 'selected', true);
-          Ember.set(item._parentItem, 'opened', true);
-          selectedItems.push(item._parentItem);
-          selectAndOpenAncestors(item._parentItem, selectedItems);
-        }
-      }
-    };
-
     var wasOpened = Ember.get(item, 'opened');
+    // if item is already selected, see `else` stmt
     if (this.get('currentItem') !== item) {
       var selected = this.get('selectedItems');
       var toRemove = [];
-      selected.forEach(function(selectedItem) {
+      selected.forEach((selectedItem) => {
         if (!isAncestor(item, selectedItem)) {
           Ember.set(selectedItem, 'selected', false);
           Ember.set(selectedItem, 'opened', false);
@@ -153,16 +121,20 @@ export default Ember.Object.extend(Ember.Evented, TransitionMonitoringSupport, {
       selectAndOpenAncestors(item, selected);
       this.set('selectedItems', selected);
     } else {
+      // toggles the `opened` state if the item is already selected
       if (wasOpened) {
         Ember.set(item, 'opened', false);
       } else {
         Ember.set(item, 'opened', true);
       }
     }
+
   },
 
   pathChanged: function(path) {
     var navs = this.get('navigations');
+
+    // TODO refactor or remove
     var invend = {
       authN: this.get('authN')
     };
@@ -183,77 +155,85 @@ export default Ember.Object.extend(Ember.Evented, TransitionMonitoringSupport, {
         processActive(i);
       });
     });
+
     this.notifyPropertyChange('navigations');
-    log.debug('Path changed to \'' + path + '\'');
-    var itemMap = this.get('itemMap');
-    var item = itemMap.get(path);
-    if (item) {
-      if (!this.get('currentItem') || this.get('currentItem')['@id'] !== item['@id']) {
-        log.debug('Selection handled for path ' + path);
-        this.handleSelection(item);
-      }
-    } else {
-      var initialPath = path;
-      var pathElems = path.split('/');
-      pathElems.shift();
-      var handled = false;
-      while (pathElems.length > 0) {
-        path = '';
-        pathElems.pop();
-        pathElems.forEach(function(elem) {
-          path += '/' + elem;
-        });
-        item = itemMap.get(path);
-        if (item) {
-          var left = initialPath.replace(path + '/', ''); // Firefox Hack. Trying to hash the rest of the URL
-          var newPath = path + '/' + encodeURIComponent(left);
-          var newItem = itemMap.get(newPath);
-          if (newItem) {
-            log.debug('Selection handled for path ' + newPath);
-            this.handleSelection(newItem);
-            handled = true;
-          } else {
-            log.debug('Selection handled for path ' + path);
-            this.handleSelection(item);
-            handled = true;
+
+    Ember.run.next(this, function () {
+      log.debug('Path changed to \'' + path + '\'');
+      var itemMap = this.get('itemMap');
+      var item = itemMap.get(path);
+      if (item) {
+        if (!this.get('currentItem') || this.get('currentItem')['@id'] !== item['@id']) {
+          log.debug('Selection handled for path ' + path);
+          this.handleSelection(item);
+        }
+      } else {
+        // TODO: is this branch of code needed?
+        var initialPath = path;
+        var pathElems = path.split('/');
+        pathElems.shift();
+        var handled = false;
+        while (pathElems.length > 0) {
+          path = '';
+          pathElems.pop();
+          pathElems.forEach(function(elem) {
+            path += '/' + elem;
+          });
+          item = itemMap.get(path);
+          if (item) {
+            var left = initialPath.replace(path + '/', ''); // Firefox Hack. Trying to hash the rest of the URL
+            var newPath = path + '/' + encodeURIComponent(left);
+            var newItem = itemMap.get(newPath);
+            if (newItem) {
+              log.debug('Selection handled for path ' + newPath);
+              this.handleSelection(newItem);
+              handled = true;
+            } else {
+              log.debug('Selection handled for path ' + path);
+              this.handleSelection(item);
+              handled = true;
+            }
+            break;
           }
-          break;
+        }
+        if (!handled) {
+          this.handleSelection({});
         }
       }
-      if (!handled) {
-        this.handleSelection({});
-      }
-    }
+    })
   }.on('currentPathDidChange'),
 
-  createPath: function(item) {
-    var self = this;
-    var path = '#';
-    if (item.page) {
-      var page = this.get('pagesMap').get(item.page);
-      path = page.path;
-      if (path.indexOf(':') !== -1) {
-        var pathItems = page.path.split('/');
-        pathItems.shift();
-        path = '';
-        var params = {};
-        pathItems.forEach(function(pathItem) {
-          var colonIndex = pathItem.indexOf(':');
-          if (colonIndex === -1) {
-            path += '/' + pathItem;
-          } else {
-            var slug = item.slug;
-            path += '/' + encodeURIComponent((self.useSlug && slug) ? self.localize(slug, self.get('l10n').get('locale')) : item['@id']);
-          }
-        });
-      }
-      Ember.set(item, 'path', '/#!' + path);
-      Ember.set(item, 'url', '/#!' + path);
-    } else {
-      path = item.href;
-      Ember.set(item, 'path', path);
-      Ember.set(item, 'url', path);
+  /**
+  * Takes a nav item and builds the corresponding path.
+  * The path equals the Ember route.
+  * Replaces dynamic segments of the route with actual item values.
+  */
+  buildPathFromItem: function(item) {
+    var thiz = this;
+    var page = this.get('pagesMap').get(item.page);
+    var path = page.path;
+    if (path.indexOf(':') !== -1) {
+      var pathItems = page.path.split('/');
+      pathItems.shift();
+      path = '';
+      var params = {};
+      pathItems.forEach(function(pathItem) {
+        var colonIndex = pathItem.indexOf(':');
+        if (colonIndex === -1) {
+          path += '/' + pathItem;
+        } else {
+          var slug = item.slug;
+          path += '/' + encodeURIComponent((thiz.useSlug && slug) ? thiz.localize(slug, thiz.get('l10n').get('locale')) : item['@id']);
+        }
+      });
     }
+    return path;
+  },
+
+  createPath: function(item) {
+    var path = item.page ? this.buildPathFromItem(item) : item.href;
+    Ember.set(item, 'path', path);
+    Ember.set(item, 'href', '/#!' + path);
     return path;
   },
 
@@ -266,10 +246,17 @@ export default Ember.Object.extend(Ember.Evented, TransitionMonitoringSupport, {
   },
 
   handleNavItem: function(item) {
-    this.handleSelection(item);
     log.debug('Handling nav item', item);
-    var path = this.createPath(item);
-    this.get('container').lookup('route:application').transitionTo(path);
+    this.handleSelection(item);
+    this.get('container').lookup('route:application').transitionTo(item.path);
+  },
+
+  getItemsByIri: function (iri) {
+    if (this.get('navigationMap').get(iri)) {
+      return this.get('navigationMap').get(iri).items;
+    } else {
+      return [];
+    }
   }
 
 });

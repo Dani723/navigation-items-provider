@@ -6,7 +6,7 @@ import NavigationItemsProvider from './provider';
 
 export default {
   name: 'navigation-items-provider',
-  needs: ['resources', 'pages'],
+  needs: ['resources', 'pages', 'init'],
 
   initialize: function(container, application, input, output) {
     var api = input.init.api,
@@ -24,7 +24,7 @@ export default {
     }
 
     var qp = {
-      // filters: 'area:' + application.invend.app.get('currentArea')
+      filters: 'area:' + apiDoc.currentArea
     };
 
     var getRdfsMember = function(data) {
@@ -220,7 +220,8 @@ export default {
           localize: localize,
           processActive: processActive,
           l10n: l10n,
-          authN: authN
+          authN: authN,
+          filterFunction: config.filterFunction ? config.filterFunction : () => true
         });
 
         application.register('iv:navigationItemsProvider', application.navigationItemsProvider, {
