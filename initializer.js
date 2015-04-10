@@ -30,8 +30,14 @@ export default {
     var getRdfsMember = function(data) {
       var context = data['@context'];
       for (var key in context) {
-        if (context[key] === 'hydra:member') {
-          return key;
+        if (typeof context[key] === 'object') {
+          if (context[key]['@id'] === 'hydra:member') {
+            return key;
+          }
+        } else if (typeof context[key] === 'string') {
+          if (context[key] === 'hydra:member') {
+            return key;
+          }
         }
       }
     };
